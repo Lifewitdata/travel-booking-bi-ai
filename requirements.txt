@@ -4,6 +4,7 @@ duckdb
 statsmodels
 scipy
 sqlglot
+openai
 streamlit
 plotly
 matplotlib

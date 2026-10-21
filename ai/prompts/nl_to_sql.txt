@@ -5,8 +5,10 @@ Schema and KPI definitions:
 
 Rules:
 - Use only these tables: {{allowed_tables}}
-- One SELECT (or WITH ... SELECT) statement, nothing else.
-- Apply LIMIT {{row_cap}} if the question could return many rows.
+- One SELECT (WITH ... SELECT and UNION / INTERSECT / EXCEPT between SELECTs
+  are fine). Nothing else - no semicolon-separated statements.
+- Do not add a LIMIT and do not read files: a guard rejects anything outside
+  the table list and appends LIMIT {{row_cap}} itself.
 - Revenue always means realized_revenue_eur, never booked revenue.
 - If the question cannot be answered from these tables, reply exactly:
   CANNOT_ANSWER

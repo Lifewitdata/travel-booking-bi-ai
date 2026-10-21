@@ -1,9 +1,10 @@
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from src.ai_insight import validate_and_cap
+from src.ai_insight import render_report, validate_and_cap, weekly_insight_numbers
 
 
 @pytest.fixture(scope="module")
@@ -58,3 +59,13 @@ def test_sql_guardrails():
         validate_and_cap("SELECT * FROM some_other_table")
     with pytest.raises(ValueError):
         validate_and_cap("SELECT 1; SELECT 2")
+
+
+def test_weekly_report_matches_the_committed_artifact():
+    # The report has no LLM in its path, so the shipped file must be exactly
+    # what the code renders from the committed weekly KPI extract.
+    weekly = pd.read_csv("data/tableau/kpi_weekly_with_anomalies.csv",
+                         parse_dates=["arrival_week"])
+    report = render_report(weekly_insight_numbers(weekly))
+    assert "{{" not in report
+    assert report == Path("outputs/weekly_insight_report.md").read_text()

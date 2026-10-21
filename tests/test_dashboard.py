@@ -31,3 +31,26 @@ def test_sidebar_filters_recompute_the_header(app):
     got = {m.label: m.value for m in app.metric}
     assert got["Bookings"] == "14,611"
     assert got["Cancellation rate"] == "17.5%"
+
+
+def _keys(at):
+    return [w.key for w in at.text_input]
+
+
+def test_nl_sql_input_hidden_without_a_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # Keep a developer's own gitignored .env from leaking into this assertion.
+    monkeypatch.setattr("src.ai_insight.load_env_file", lambda path=".env": None)
+    at = AppTest.from_file(str(APP), default_timeout=180)
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert "nl_q" not in _keys(at)
+
+
+def test_nl_sql_input_shown_with_a_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key-not-real")
+    at = AppTest.from_file(str(APP), default_timeout=180)
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert "nl_q" in _keys(at)
+    assert at.text_input(key="nl_q").value.startswith("Which distribution channel")

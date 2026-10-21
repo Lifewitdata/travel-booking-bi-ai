@@ -1,14 +1,15 @@
-# Travel Booking BI
+# Travel Booking BI & AI Insight Platform
 
 Revenue, cancellation and channel economics for a two-hotel group (City Hotel
 Lisbon + Resort Hotel Algarve), built for the three audiences that actually
 argue about them - Marketing, Operations and Finance. A DuckDB KPI warehouse,
 a five-tab Streamlit dashboard, a holdout-scored revenue forecast, an
 experiment readout, a Google Sheets tracker with Apps Script automation, and
-a SQL guard that lets nothing through but a capped `SELECT`.
+guarded natural-language querying: the model writes SQL, a sqlglot allowlist
+passes nothing but a capped `SELECT`, and DuckDB answers in read-only mode.
 
 **119,390 real bookings** (Hotel Booking Demand, Antonio / Almeida / Nunes
-2019, via TidyTuesday), arrivals Jul 2015 to Aug 2017. 10 tests pass, all
+2019, via TidyTuesday), arrivals Jul 2015 to Aug 2017. 27 tests pass, all
 three notebooks are executed, and the dashboard's headline numbers are
 asserted by a Streamlit AppTest rather than claimed in prose.
 
@@ -59,8 +60,40 @@ pip install -r requirements.txt
 python -m src.run_pipeline      # raw -> clean fact -> KPI marts -> DuckDB
 python -m src.run_analysis      # forecast, experiment readout, anomaly scan
 streamlit run dashboard/app.py  # dashboard
-pytest tests/                   # 10 tests, includes the dashboard AppTest
+pytest tests/                   # 27 tests: pipeline, dashboard AppTest, SQL guard
 ```
+
+Natural-language querying needs a key; everything above runs without one:
+
+```
+cp .env.example .env            # paste OPENAI_API_KEY (.env is gitignored)
+python -m src.ai_insight "Which channel has the best gross margin?"
+```
+
+## Ask it in English
+
+`src/ai_insight.py` holds the whole path, and the model sits outside the
+numbers:
+
+1. `ai/prompts/nl_to_sql.txt` + `ai/schema_description.md` (KPI definitions
+   and six documented pitfalls) go to the model; it is told to return SQL or
+   `CANNOT_ANSWER`.
+2. `validate_and_cap()` parses the reply with sqlglot and rejects it unless
+   it is exactly one read-only query (`SELECT`, `WITH`, or a `UNION` /
+   `INTERSECT` / `EXCEPT` of them), reads only the nine allowlisted marts,
+   and contains no file or introspection function (`read_csv`, `parquet_scan`,
+   `duckdb_tables` and anything sqlglot cannot name). It appends
+   `LIMIT 5000` itself.
+3. Only a surviving query runs, on a `read_only=True` DuckDB connection, and
+   the rows come back from DuckDB. The model never supplies a figure.
+
+Tab 5 of the dashboard exposes it as a question box; with no key set the box
+is hidden and the rest of the tab still renders. `tests/test_nl_sql.py` feeds
+the guard hostile replies - `DROP TABLE`, a two-statement reply, `pg_catalog`,
+a `read_csv` - and asserts each is rejected before the database is opened. The
+weekly insight report has no LLM in its path at all: every number is computed
+in Python from `kpi_weekly` before any text is written, and the last (partial)
+week is dropped so a truncated week is never reported as a crash.
 
 ## Data calls worth defending
 
@@ -82,6 +115,7 @@ Full rules in `docs/data_quality_rules.md`.
 | Bookings, ADR, lead time, cancellation, country | Real source data, 2015-2017 |
 | Channel commission + acquisition costs | Synthetic rate card, labelled in-file via `is_synthetic` |
 | A/B experiment users | Simulated at seed 42, labelled in the CSV, dashboard and README |
+| NL-to-SQL answers | The model drafts SQL; every figure comes back from DuckDB |
 | Forecast | Fit on the real weekly series; holdout-scored against two baselines |
 
 Everything synthetic is marked where it appears rather than at the end.
@@ -89,13 +123,13 @@ Everything synthetic is marked where it appears rather than at the end.
 ## Layout
 
 ```
-src/          pipeline, validation, forecast, experiment, SQL guard
+src/          pipeline, validation, forecast, experiment, guarded NL-to-SQL
 sql/duckdb/   SQL cross-check against the pandas marts
 sql/bigquery/ the same KPI logic written for BigQuery (see note below)
 dashboard/    Streamlit app, five tabs, filters recompute from the fact table
 notebooks/    01 cleaning & quality, 02 analysis & forecast, 03 experiment
 sheets/       KPI tracker spec + Apps Script (anomaly flags + email)
-ai/           SQL guard prompt and schema description
+ai/           NL-to-SQL prompt, LLM-facing schema contract, report template
 data/         raw source, clean fact, KPI marts for external tools
 ```
 

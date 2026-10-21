@@ -4,7 +4,11 @@ Run from the project root:  streamlit run dashboard/app.py
 Reads the clean fact table and KPI extracts built by src/run_pipeline.py
 and src/run_analysis.py. Filters recompute every KPI from the fact table,
 so what you see is always the filtered truth, never a stale extract.
+The Ask-a-question tab is guarded NL-to-SQL: the model writes SQL, a sqlglot
+allowlist checks it, DuckDB executes it read-only. No model-written number.
 """
+import os
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -13,6 +17,9 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
+sys.path.insert(0, str(ROOT))
+
+from src.ai_insight import answer_question, load_env_file  # noqa: E402
 
 st.set_page_config(page_title="Travel Booking BI", layout="wide")
 st.title("Travel Booking BI & AI Insight Platform")
@@ -168,6 +175,38 @@ with tab5:
              f"at seasonal turns.")
     st.dataframe(flagged[["arrival_week", "bookings", "realized_revenue_eur",
                           "cancellation_rate"]].tail(10), width="stretch")
+
+    st.subheader("Ask the warehouse (guarded NL-to-SQL)")
+    load_env_file(str(ROOT / ".env"))
+    if os.environ.get("OPENAI_API_KEY"):
+        question = st.text_input(
+            "Question", key="nl_q",
+            value="Which distribution channel has the highest channel ROI?")
+        if st.button("Run question", key="nl_run") and question.strip():
+            db = ROOT / "data" / "travel_booking.duckdb"
+            if not db.exists():
+                st.error("data/travel_booking.duckdb is missing - run "
+                         "`python -m src.run_pipeline` first.")
+            else:
+                try:
+                    with st.spinner("Model writes SQL, the guard checks it, DuckDB runs it"):
+                        frame, safe_sql = answer_question(question.strip(), db_path=str(db))
+                    st.code(safe_sql, language="sql")
+                    st.caption(f"{len(frame)} rows returned (row cap enforced by the guard). "
+                               "Every figure below came from DuckDB, not from the model.")
+                    st.dataframe(frame, width="stretch")
+                except ValueError as exc:
+                    st.error(f"Rejected by the SQL guard before it reached the database: {exc}")
+                except RuntimeError as exc:
+                    st.error(str(exc))
+        st.caption("The prompt is `ai/prompts/nl_to_sql.txt` with "
+                   "`ai/schema_description.md` inlined. The guard allows one "
+                   "read-only query over the nine marts, blocks file and "
+                   "introspection functions, and caps rows at 5,000.")
+    else:
+        st.caption("Set OPENAI_API_KEY (export it, or copy `.env.example` to "
+                   "`.env` - gitignored) to ask questions. Everything else on "
+                   "this page runs without it.")
 
 st.caption("Source: Hotel Booking Demand (Antonio, Almeida & Nunes 2019). "
            "Realized revenue counts Check-Out stays only. Reconciliation: "
