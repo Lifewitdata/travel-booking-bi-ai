@@ -2,10 +2,11 @@
 
 Revenue, cancellation and channel economics for a two-hotel group (City Hotel
 Lisbon + Resort Hotel Algarve), built for the three audiences that actually
-argue about them - Marketing, Operations and Finance. A DuckDB KPI warehouse,
-a five-tab Streamlit dashboard, a holdout-scored revenue forecast, an
-experiment readout, a Google Sheets tracker with Apps Script automation, and
-guarded natural-language querying: the model writes SQL, a sqlglot allowlist
+argue about them - Marketing, Operations and Finance. A DuckDB KPI warehouse
+with a BigQuery port of the same logic, a five-tab Streamlit dashboard, a
+holdout-scored revenue forecast, an experiment readout, a Google Sheets
+tracker with Apps Script automation, and guarded natural-language querying:
+the model writes SQL, a sqlglot allowlist
 passes nothing but a capped `SELECT`, and DuckDB answers in read-only mode.
 
 **Live dashboard:** https://travel-booking-bi-ai-uw87vknpkr2c7bfhii5ayj.streamlit.app/
@@ -14,7 +15,7 @@ AI), where the hotel, channel, segment and date filters recompute every KPI
 from the fact table rather than reading a static extract.
 
 **119,390 real bookings** (Hotel Booking Demand, Antonio / Almeida / Nunes
-2019, via TidyTuesday), arrivals Jul 2015 to Aug 2017. 27 tests pass, all
+2019, via TidyTuesday), arrivals Jul 2015 to Aug 2017. 36 tests pass, all
 three notebooks are executed, and the dashboard's headline numbers are
 asserted by a Streamlit AppTest rather than claimed in prose.
 
@@ -43,7 +44,7 @@ safe.
 
 Reproduced by `python -m src.run_pipeline` and `python -m src.run_analysis`;
 tests cover the reconciliation, the revenue definition, the forecast model
-ranking and the SQL guardrails.
+ranking, the SQL guardrails and the BigQuery port.
 
 - Clean fact **119,209** bookings, reconciling exactly: 119,390 raw = 119,209
   clean + 181 quarantined
@@ -64,8 +65,9 @@ ranking and the SQL guardrails.
 pip install -r requirements.txt
 python -m src.run_pipeline      # raw -> clean fact -> KPI marts -> DuckDB
 python -m src.run_analysis      # forecast, experiment readout, anomaly scan
+python -m src.load_bigquery     # checks the BigQuery port; add --upload to send it
 streamlit run dashboard/app.py  # dashboard, or open the live app above
-pytest tests/                   # 27 tests: pipeline, dashboard AppTest, SQL guard
+pytest tests/                   # 36 tests: pipeline, dashboard AppTest, SQL guard, BQ port
 ```
 
 Natural-language querying needs a key; everything above runs without one:
@@ -122,6 +124,7 @@ Full rules in `docs/data_quality_rules.md`.
 | Channel commission + acquisition costs | Synthetic rate card, labelled in-file via `is_synthetic` |
 | A/B experiment users | Simulated at seed 42, labelled in the CSV, dashboard and README |
 | NL-to-SQL answers | The model drafts SQL; every figure comes back from DuckDB |
+| BigQuery marts | Same logic as the DuckDB marts, verified by dialect parse and column parity |
 | Forecast | Fit on the real weekly series; holdout-scored against two baselines |
 
 Everything synthetic is marked where it appears rather than at the end.
@@ -129,9 +132,10 @@ Everything synthetic is marked where it appears rather than at the end.
 ## Layout
 
 ```
-src/          pipeline, validation, forecast, experiment, guarded NL-to-SQL
+src/          pipeline, validation, forecast, experiment, guarded NL-to-SQL,
+              BigQuery loader
 sql/duckdb/   SQL cross-check against the pandas marts
-sql/bigquery/ the same KPI logic written for BigQuery (see note below)
+sql/bigquery/ full BigQuery mirror: landing DDL, fact, 8 marts, 5 views
 dashboard/    Streamlit app, five tabs, filters recompute from the fact table
 notebooks/    01 cleaning & quality, 02 analysis & forecast, 03 experiment
 sheets/       KPI tracker spec + Apps Script (anomaly flags + email)
@@ -139,9 +143,14 @@ ai/           NL-to-SQL prompt, LLM-facing schema contract, report template
 data/         raw source, clean fact, KPI marts for external tools
 ```
 
-**On the BigQuery files:** the DuckDB path is what runs and is tested here.
-`sql/bigquery/` carries the same staging, quality and KPI logic in BQ dialect
-and is a partial port - it builds `stg_bookings`, `kpi_weekly` and two views
-against landing tables that need an upload job before they execute. The
-BigQuery loader is the obvious next piece of work, not something already
-done.
+**On the BigQuery files:** `sql/bigquery/` is a full mirror of the DuckDB
+path in BQ dialect - landing DDL for the three source CSVs, staging, quality
+checks, `fact_bookings`, all eight KPI marts, five dashboard views, the
+experiment readout and the forecast inputs. `src/load_bigquery.py` uploads the
+CSVs and runs the files in order; without `--upload` it only checks the plan
+and that every DDL column still matches its CSV header. Nine tests in
+`tests/test_bigquery_sql.py` parse each file as BigQuery and compare every
+mart's output columns, in order, against the published extracts. The DuckDB
+path stays the one that runs on a laptop in two minutes; the BigQuery files are
+verified by parsing and column parity, and have not been executed against a
+live GCP project.
