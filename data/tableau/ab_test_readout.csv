@@ -1,0 +1,15 @@
+metric,value
+users_control,9938
+users_treatment,10062
+srm_p_value,0.3806
+conversion_control,0.1199
+conversion_treatment,0.1316
+conversion_lift_pct,9.7
+conversion_p_value,0.0131
+cancel_rate_bookers_control,0.3758
+cancel_rate_bookers_treatment,0.4018
+cancel_rate_p_value,0.1822
+revenue_per_user_control_eur,25.15
+revenue_per_user_treatment_eur,26.45
+revenue_per_user_p_value,0.3068
+decision,"SHIP with monitoring: conversion lift is significant and the cancellation guardrail is NOT significantly breached, but its point estimate moved the wrong way and the guardrail test is underpowered at this sample of bookers. Monitor cancellation weekly for 4 weeks with a pre-set stop rule."

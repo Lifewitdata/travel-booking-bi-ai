@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.duckdb
+.env
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
+venv/
+.streamlit/secrets.toml

@@ -1,0 +1,12 @@
+pandas
+numpy
+duckdb
+statsmodels
+scipy
+sqlglot
+streamlit
+plotly
+matplotlib
+pytest
+nbformat
+nbconvert

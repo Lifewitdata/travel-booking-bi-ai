@@ -1,0 +1,6 @@
+distribution_channel,commission_rate,acquisition_cost_per_booking_eur,is_synthetic
+Direct,0.03,6.00,TRUE
+Corporate,0.08,4.00,TRUE
+GDS,0.12,15.00,TRUE
+TA/TO,0.18,22.00,TRUE
+Undefined,0.10,10.00,TRUE

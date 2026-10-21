@@ -1,0 +1,17 @@
+{
+ "raw_rows": 119390,
+ "clean_rows": 119209,
+ "quarantined_rows": 181,
+ "reconciles": true,
+ "full_duplicate_rows_kept": 31994,
+ "children_nulls_filled": 4,
+ "zero_night_rows_kept_flagged": 645,
+ "zero_adr_rows_kept_flagged": 1810,
+ "noshow_rows_in_source_canceled_flag": 1207,
+ "overall_cancellation_rate": 0.3708,
+ "realized_revenue_eur": 25986912.23,
+ "gross_margin_eur": 20679669.9,
+ "gross_margin_pct": 0.7958,
+ "cancel_rate_no_deposit": 0.284,
+ "cancel_rate_non_refund_source_quirk": 0.9936
+}
