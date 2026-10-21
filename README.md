@@ -8,6 +8,11 @@ experiment readout, a Google Sheets tracker with Apps Script automation, and
 guarded natural-language querying: the model writes SQL, a sqlglot allowlist
 passes nothing but a capped `SELECT`, and DuckDB answers in read-only mode.
 
+**Live dashboard:** https://travel-booking-bi-ai-uw87vknpkr2c7bfhii5ayj.streamlit.app/
+Five tabs (Executive, Marketing, Operations, Finance & Forecast, Experiment &
+AI), where the hotel, channel, segment and date filters recompute every KPI
+from the fact table rather than reading a static extract.
+
 **119,390 real bookings** (Hotel Booking Demand, Antonio / Almeida / Nunes
 2019, via TidyTuesday), arrivals Jul 2015 to Aug 2017. 27 tests pass, all
 three notebooks are executed, and the dashboard's headline numbers are
@@ -59,7 +64,7 @@ ranking and the SQL guardrails.
 pip install -r requirements.txt
 python -m src.run_pipeline      # raw -> clean fact -> KPI marts -> DuckDB
 python -m src.run_analysis      # forecast, experiment readout, anomaly scan
-streamlit run dashboard/app.py  # dashboard
+streamlit run dashboard/app.py  # dashboard, or open the live app above
 pytest tests/                   # 27 tests: pipeline, dashboard AppTest, SQL guard
 ```
 
@@ -88,7 +93,8 @@ numbers:
    the rows come back from DuckDB. The model never supplies a figure.
 
 Tab 5 of the dashboard exposes it as a question box; with no key set the box
-is hidden and the rest of the tab still renders. `tests/test_nl_sql.py` feeds
+is hidden and the rest of the tab still renders (the hosted app above carries
+no secret, so there it stays hidden). `tests/test_nl_sql.py` feeds
 the guard hostile replies - `DROP TABLE`, a two-statement reply, `pg_catalog`,
 a `read_csv` - and asserts each is rejected before the database is opened. The
 weekly insight report has no LLM in its path at all: every number is computed
